@@ -1,12 +1,14 @@
 import asyncio
+import logging
 import os
-
 import matplotlib.pyplot as plt
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import aiohttp
 import traceback
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 
 # Binance API credentials
 API_KEY = 'Q2CP4LlaXcnMYgVQsuCUhFfkPSeT2T0xAxnAXVYAUkcqQUMIQ8y5PH5kFKvjiqEt'
@@ -32,18 +34,48 @@ user_thresholds = {}
 async def cmd_start(message: types.Message):
     await message.answer("Добро пожаловать в криптовалютный бот!\n"
                          "Введите /help чтобы посмотреть основные команды")
+    # Create the "Show Rates" button
+    button_show_rates = InlineKeyboardButton('Show Rates', callback_data='show_rates')
+    # Create the "Set Threshold" button
+    button_show_usdt = InlineKeyboardButton('USDT', callback_data='show_usdt')
+
+    # Create a keyboard markup with the buttons
+    keyboard = InlineKeyboardMarkup().add(button_show_rates, button_show_usdt, )
+
+    await message.answer("Please select an option:", reply_markup=keyboard)
+
+# Callback handler for button "Show Rates"
+@dp.callback_query_handler(lambda query: query.data == 'show_rates')
+async def handle_show_rates(callback_query: types.CallbackQuery):
+    await callback_query.answer()  # Answer the callback query
+
+    # Trigger the /rates command
+    message = callback_query.message
+    await cmd_rates(message)
+
+# Callback handler for button "show usdt"
+@dp.callback_query_handler(lambda query: query.data == 'show_usdt')
+async def handle_set_threshold(callback_query: types.CallbackQuery):
+    await callback_query.answer()  # Answer the callback query
+    message = callback_query.message
+    await cmd_btc(message)
+
+
+
+
 
 # Command handler for /help
 @dp.message_handler(commands=['help'])
 async def cmd_help(message: types.Message):
     await message.answer("/rates - получить цены на все криптовалюты.\n"
-                         "/threshold [cryptocurrency] [threshold_value] - установка уведомления о пороге цены.\n"
+                         "/threshold [криптовалюта] [цена] - установка уведомления о пороге цены.\n"
                          "/btc - получить текущую цену Bitcoin.\n"
                          "/eth - получить текущую цену Ethereum.\n"
                          "/usdt - получить текущую цену USDT. \n"
-                         "/rate [cryptocurrency] - получить цену криптовалюты. \n"
-                         "/graph [cryptocurrency] - получить график криптовалюты.\n"
-                         "/info [cryptocurrency] - получить основную информацию по крипте")
+                         "/rate [криптовалюта] - получить цену криптовалюты. \n"
+                         "/graph [криптовалюта] - получить график криптовалюты.\n"
+                         "/info [криптовалюта] - получить основную информацию по крипте \n"
+                         "/indicator [криптовалюта] - получить индикатор по крипте")
 
 
 # Command handler for /graph
@@ -121,10 +153,10 @@ async def cmd_info(message: types.Message):
             market_cap = data['market_data']['market_cap']['usd']
             volume = data['market_data']['total_volume']['usd']
 
-            info_message = f"Name: {name}\n" \
+            info_message = f"Название: {name}\n" \
                            f"Symbol: {symbol}\n" \
-                           f"Current Price: {current_price} USD\n" \
-                           f"Market Cap: {market_cap} USD\n" \
+                           f"Стоимость: {current_price} USD\n" \
+                           f"Рыночная капитализация: {market_cap} USD\n" \
                            f"24h Volume: {volume} USD"
 
             await message.answer(info_message)
@@ -289,19 +321,31 @@ async def cmd_rates(message: types.Message):
                             dot_price_kzt = float(dot_price) * usd_to_kzt_rate
                             matic_price_kzt = float(matic_price) * usd_to_kzt_rate
 
-                            await message.answer(f"Цена Bitcoin (BTC): {btc_price} USDT | {btc_price_rub} RUB | {btc_price_kzt} KZT")
-                            await message.answer(f"Цена Ethereum (ETH): {eth_price} USDT | {eth_price_rub} RUB | {eth_price_kzt} KZT")
-                            await message.answer(f"Цена BUSD/USDT (USDT): {usdt_price} USDT | {usdt_price_rub} RUB | {usdt_price_kzt} KZT")
-                            await message.answer(f"Цена BNB/USDT (BNB): {bnb_price} USDT | {bnb_price_rub} RUB | {bnb_price_kzt} KZT")
-                            await message.answer(f"Цена USDC/USDT (USD Coin): {usdcoin_price} USDT | {usdcoin_price_rub} RUB | {usdcoin_price_kzt} KZT")
-                            await message.answer(f"Цена XRP/USDT (Ripple): {xrp_price} USDT | {xrp_price_rub} RUB | {xrp_price_kzt} KZT")
-                            await message.answer(f"Цена ADA/USDT (Cardano): {ada_price} USDT | {ada_price_rub} RUB | {ada_price_kzt} KZT")
-                            await message.answer(f"Цена DOGE/USDT (Dogecoin): {doge_price} USDT | {doge_price_rub} RUB | {doge_price_kzt} KZT")
-                            await message.answer(f"Цена TRX/USDT (TRON): {trx_price} USDT | {trx_price_rub} RUB | {trx_price_kzt} KZT")
-                            await message.answer(f"Цена SOL/USDT (Solana): {sol_price} USDT | {sol_price_rub} RUB | {sol_price_kzt} KZT")
-                            await message.answer(f"Цена LTC/USDT (Litecoin): {ltc_price} USDT | {ltc_price_rub} RUB | {ltc_price_kzt} KZT")
-                            await message.answer(f"Цена DOT/USDT (Polkadot): {dot_price} USDT | {dot_price_rub} RUB | {dot_price_kzt} KZT")
-                            await message.answer(f"Цена MATIC/USDT (Polygon): {matic_price} USDT | {matic_price_rub} RUB | {matic_price_kzt} KZT")
+                            await message.answer(f"Цена Bitcoin (BTC): {btc_price} USDT | {btc_price_rub} RUB | {btc_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена Ethereum (ETH): {eth_price} USDT | {eth_price_rub} RUB | {eth_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена BUSD/USDT (USDT): {usdt_price} USDT | {usdt_price_rub} RUB | {usdt_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена BNB/USDT (BNB): {bnb_price} USDT | {bnb_price_rub} RUB | {bnb_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена USDC/USDT (USD Coin): {usdcoin_price} USDT | {usdcoin_price_rub} RUB | {usdcoin_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена XRP/USDT (Ripple): {xrp_price} USDT | {xrp_price_rub} RUB | {xrp_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена ADA/USDT (Cardano): {ada_price} USDT | {ada_price_rub} RUB | {ada_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена DOGE/USDT (Dogecoin): {doge_price} USDT | {doge_price_rub} RUB | {doge_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена TRX/USDT (TRON): {trx_price} USDT | {trx_price_rub} RUB | {trx_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена SOL/USDT (Solana): {sol_price} USDT | {sol_price_rub} RUB | {sol_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена LTC/USDT (Litecoin): {ltc_price} USDT | {ltc_price_rub} RUB | {ltc_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена DOT/USDT (Polkadot): {dot_price} USDT | {dot_price_rub} RUB | {dot_price_kzt} KZT \n"
+                                                 "___________________________________________\n \n"
+                                                 f"Цена MATIC/USDT (Polygon): {matic_price} USDT | {matic_price_rub} RUB | {matic_price_kzt} KZT \n")
                         else:
                             await message.answer("Не удалось получить обменный курс доллара США к рублю.")
                     else:
@@ -319,7 +363,7 @@ async def cmd_threshold(message: types.Message):
         # Parse the cryptocurrency and threshold value from the message
         command_args = message.get_args().split()
         if len(command_args) != 2:
-            await message.answer("Неверный формат команды. Пожалуйста, используйте /threshold [cryptocurrency] [threshold_value].")
+            await message.answer("Неверный формат команды. Пожалуйста, используйте /threshold [Крипта] [Цена].")
             return
 
         cryptocurrency = command_args[0].upper()
@@ -333,7 +377,8 @@ async def cmd_threshold(message: types.Message):
             'triggered': False
         }
 
-        await message.answer(f"{cryptocurrency} порог установлен на: {threshold} USDT")
+        await message.answer(f"{cryptocurrency} порог установлен на: {threshold} USDT \n"
+                             f"В случае достижения данной цены вам придет уведомление ⏰")
     except (ValueError, TypeError):
         await message.answer("Неверное пороговое значение. Пожалуйста, укажите действительное число.")
 
@@ -376,6 +421,37 @@ async def check_thresholds():
             await asyncio.sleep(10)  # Check every 10 seconds
         except Exception as e:
             logging.error(f"Произошла ошибка при проверке криптовалютных порогов: {str(e)}")
+
+
+@dp.message_handler(commands=['indicator'])
+async def cmd_indicator(message: types.Message):
+    try:
+        command_args = message.get_args().split()
+        if len(command_args) != 1:
+            await message.answer("Неверный формат команды. Пожалуйста, используйте /indicator [криптовалюта].")
+            return
+
+        cryptocurrency = command_args[0].upper()
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                    f'https://api.binance.com/api/v3/ticker/24hr?symbol={cryptocurrency}USDT') as response:
+                if response.status == 200:
+                    data = await response.json()
+                    indicator = data['priceChangePercent']
+                    indicator = float(indicator)
+
+                    if indicator > 0:
+                        indicator_message = f"Криптовалюта {cryptocurrency} имеет положительный индикатор: {indicator}% (Рекомендуется покупать)🟢."
+                    else:
+                        indicator_message = f"Криптовалюта {cryptocurrency} имеет отрицательный индикатор: {indicator}% (Рекомендуется продавать)🔴."
+
+                    await message.answer(indicator_message)
+                else:
+                    await message.answer(
+                        "Не удалось получить информацию об индикаторе криптовалюты. Пожалуйста, повторите попытку позже.")
+    except Exception as e:
+        await message.answer(f"Произошла ошибка при обработке команды: {str(e)}")
 
 
 # Start the bot
